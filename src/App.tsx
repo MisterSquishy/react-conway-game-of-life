@@ -7,6 +7,7 @@ import SHAPES, { CELL_STATE, PREFABS } from "./shapes";
 const { Option, OptGroup } = Select;
 
 const aliveColor = "#007EA6";
+const starvingColor = "#88A990";
 
 const numRows = 30;
 const numCols = 100;
@@ -138,35 +139,20 @@ const App: React.FC = () => {
   const cellColorStyle = (i: number, k: number) => {
     const cellState = grid[i][k];
     if (cellState.current === CELL_STATE.ALIVE) {
-      if (hoveredCell && hoveredCell[0] === i && hoveredCell[1] === k) {
-        return {
-          backgroundColor: aliveColor,
-          opacity: 0.3,
-        };
-      } else if (
-        cellState.previous === CELL_STATE.DEAD ||
-        cellState.next === CELL_STATE.DEAD
-      ) {
-        return {
-          backgroundColor: aliveColor,
-          opacity: 0.6,
-        };
-      } else {
-        return { backgroundColor: aliveColor };
-      }
+      return {
+        backgroundColor: aliveColor,
+      };
     } else if (cellState.current === CELL_STATE.DEAD) {
       if (hoveredCell && hoveredCell[0] === i && hoveredCell[1] === k) {
         return {
-          backgroundColor: aliveColor,
-          opacity: 0.6,
+          backgroundColor: starvingColor,
         };
       } else if (
         cellState.previous !== CELL_STATE.DEAD ||
         cellState.next !== CELL_STATE.DEAD
       ) {
         return {
-          backgroundColor: aliveColor,
-          opacity: 0.3,
+          backgroundColor: starvingColor,
         };
       }
     }
