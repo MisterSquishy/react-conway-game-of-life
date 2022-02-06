@@ -25,6 +25,10 @@ const tracerProvider = new WebTracerProvider({
   }),
 });
 
+// tracerProvider.addSpanProcessor(
+//   new SimpleSpanProcessor(new ConsoleSpanExporter())
+// );
+
 // Connect to Lightstep by configuring the exporter with your endpoint and access token.
 tracerProvider.addSpanProcessor(
   new BatchSpanProcessor(
