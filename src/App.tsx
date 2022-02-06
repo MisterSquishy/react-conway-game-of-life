@@ -8,6 +8,7 @@ const { Option, OptGroup } = Select;
 
 const aliveColor = "#007EA6";
 const starvingColor = "#88A990";
+const hoverColor = "#D7CD4E";
 
 const numRows = 30;
 const numCols = 100;
@@ -52,11 +53,22 @@ const generateEmptyGrid = (): Grid => {
   return rows;
 };
 
+const mergeGrids = (grid1: Grid, grid2: Grid): Grid => {
+  const mergedGrid: Grid = [];
+  for (var i = 0; i < numRows; i++) {
+    mergedGrid[i] = [];
+    for (var k = 0; k < numCols; k++) {
+      mergedGrid[i][k] = grid1[i]?.[k] || grid2[i]?.[k];
+    }
+  }
+  return mergedGrid;
+};
+
 const App: React.FC = () => {
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
   const [hoveredCell, setHoveredCell] = useState<[number, number]>();
   const [cursorType, setCursorType] = useState<PREFABS>(PREFABS.POINT);
-  const intervalMs = useRef(100);
+  const intervalMs = useRef(50);
   const generation = useRef(0);
 
   const [grid, setGrid] = useState(() => {
@@ -136,18 +148,54 @@ const App: React.FC = () => {
     setTimeout(runSimulation, intervalMs.current);
   }, [generation, intervalMs]);
 
+  const getCellsForCursor = (i: number, k: number): Grid => {
+    const cursorShape = SHAPES[cursorType];
+    const newGrid: Grid = [];
+    var startRow = i;
+    var startCol = k;
+    if (numRows < i + cursorShape.length) {
+      // shape would run off bottom of grid
+      startRow = numRows - cursorShape.length;
+    }
+    if (numCols < k + cursorShape[0].length) {
+      // shape would run off right of grid
+      startCol = numCols - cursorShape[0].length;
+    }
+    for (var row = 0; row < cursorShape.length; row++) {
+      newGrid[startRow + row] = [];
+      for (var col = 0; col < cursorShape[row].length; col++) {
+        newGrid[startRow + row][startCol + col] = {
+          previous: cursorShape[row][col],
+          current: cursorShape[row][col],
+          next: cursorShape[row][col],
+        };
+      }
+    }
+    return newGrid;
+  };
+
   const cellColorStyle = (i: number, k: number) => {
     const cellState = grid[i][k];
-    if (cellState.current === CELL_STATE.ALIVE) {
+    const [hoveredRow, hoveredColumn] = hoveredCell || [];
+    const hoveredCells =
+      hoveredRow !== undefined && hoveredColumn !== undefined
+        ? getCellsForCursor(hoveredRow, hoveredColumn)
+        : [];
+    if (
+      hoveredRow !== undefined &&
+      hoveredColumn !== undefined &&
+      hoveredCells[i] &&
+      hoveredCells[i][k]?.current === CELL_STATE.ALIVE
+    ) {
+      return {
+        backgroundColor: hoverColor,
+      };
+    } else if (cellState.current === CELL_STATE.ALIVE) {
       return {
         backgroundColor: aliveColor,
       };
     } else if (cellState.current === CELL_STATE.DEAD) {
-      if (hoveredCell && hoveredCell[0] === i && hoveredCell[1] === k) {
-        return {
-          backgroundColor: starvingColor,
-        };
-      } else if (
+      if (
         cellState.previous !== CELL_STATE.DEAD ||
         cellState.next !== CELL_STATE.DEAD
       ) {
@@ -283,26 +331,8 @@ const App: React.FC = () => {
               <div
                 key={`${i}-${k}`}
                 onClick={() => {
-                  const cursorShape = SHAPES[cursorType];
-                  const newGrid = produce(grid, (gridCopy) => {
-                    var startRow = i;
-                    var startCol = k;
-                    if (numRows < i + cursorShape.length) {
-                      // shape would run off bottom of grid
-                      startRow = numRows - cursorShape.length;
-                    }
-                    if (numCols < k + cursorShape[0].length) {
-                      // shape would run off right of grid
-                      startCol = numCols - cursorShape[0].length;
-                    }
-                    for (var row = 0; row < cursorShape.length; row++) {
-                      for (var col = 0; col < cursorShape[row].length; col++) {
-                        gridCopy[startRow + row][startCol + col].current =
-                          cursorShape[row][col];
-                      }
-                    }
-                  });
-                  setGrid(newGrid);
+                  const clickedCells = getCellsForCursor(i, k);
+                  setGrid(mergeGrids(clickedCells, grid));
                 }}
                 onMouseEnter={() => setHoveredCell([i, k])}
                 onMouseLeave={() => setHoveredCell(undefined)}

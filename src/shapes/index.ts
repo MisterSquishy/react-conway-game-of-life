@@ -14,7 +14,7 @@ export enum PREFABS {
   GLIDER,
 }
 
-export default {
+const SHAPES = {
   [PREFABS.POINT]: [[CELL_STATE.ALIVE]],
   [PREFABS.BEEHIVE]: [
     [CELL_STATE.DEAD, CELL_STATE.ALIVE, CELL_STATE.ALIVE, CELL_STATE.DEAD],
@@ -331,3 +331,5 @@ export default {
     [CELL_STATE.ALIVE, CELL_STATE.ALIVE, CELL_STATE.ALIVE],
   ],
 };
+
+export default SHAPES
