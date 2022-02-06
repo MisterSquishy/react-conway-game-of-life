@@ -1,6 +1,8 @@
 export enum CELL_STATE {
   DEAD,
   ALIVE,
+  HOVERED,
+  STARVING
 }
 
 export enum PREFABS {

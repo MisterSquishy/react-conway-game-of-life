@@ -8,6 +8,7 @@ import { Button, InputNumber, Layout, PageHeader, Select, Space } from "antd";
 import Modal from "antd/lib/modal/Modal";
 import produce from "immer";
 import React, { useCallback, useRef, useState } from "react";
+import { Layer, Stage } from "react-konva";
 import "./App.css";
 import Cell from "./components/Cell";
 import SHAPES, { CELL_STATE, PREFABS } from "./shapes";
@@ -127,9 +128,6 @@ const App: React.FC = () => {
     const runGeneration = useCallback(() => {
       const ctx = trace.setSpan(context.active(), renderSpan);
       const runGenerationSpan = tracer.startSpan("run generation", {}, ctx);
-      if (!runningRef.current) {
-        return;
-      }
 
       generation.current++;
       setGrid((g) => {
@@ -214,9 +212,16 @@ const App: React.FC = () => {
         });
       });
 
-      setTimeout(runGeneration, intervalMs.current);
       runGenerationSpan.end();
-    }, [generation, intervalMs, renderSpan]);
+    }, [generation, renderSpan]);
+
+    const runLoop = useCallback(() => {
+      if (!runningRef.current) {
+        return;
+      }
+      runGeneration();
+      setTimeout(runLoop, intervalMs.current);
+    }, [runGeneration, intervalMs]);
 
     const getCellsForCursor = useCallback(
       (i: number, k: number): Grid => {
@@ -302,11 +307,14 @@ const App: React.FC = () => {
                 setRunning(!running);
                 if (!running) {
                   runningRef.current = true;
-                  runGeneration();
+                  runLoop();
                 }
               }}
             >
               {running ? "stop" : "start"}
+            </Button>
+            <Button type="primary" disabled={running} onClick={runGeneration}>
+              step
             </Button>
             <Button
               type="default"
@@ -386,42 +394,43 @@ const App: React.FC = () => {
           >
             generation {generation.current}
           </Space>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(${numCols}, 15px)`,
-            }}
-          >
-            {grid.map((rows, i) =>
-              rows.map((col, k) => (
-                <Cell
-                  colorClassName={
-                    hoveredCells[i]?.[k]?.current === CELL_STATE.ALIVE
-                      ? "hovered"
-                      : grid[i]?.[k]?.current === CELL_STATE.ALIVE
-                      ? "alive"
-                      : grid[i]?.[k]?.previous !== CELL_STATE.DEAD ||
-                        grid[i]?.[k]?.next !== CELL_STATE.DEAD
-                      ? "starving"
-                      : ""
-                  }
-                  key={`${i}-${k}`}
-                  onClick={() => {
-                    const ctx = trace.setSpan(context.active(), renderSpan);
-                    const gridCellClickSpan = tracer.startSpan(
-                      "grid cell click",
-                      {},
-                      ctx
-                    );
-                    setGrid(mergeGrids(hoveredCells, grid));
-                    gridCellClickSpan.end();
-                  }}
-                  onMouseEnter={() => setHoveredCell([i, k])}
-                  onMouseLeave={() => setHoveredCell(undefined)}
-                />
-              ))
-            )}
-          </div>
+          <Stage width={15 * numCols} height={15 * numRows}>
+            <Layer>
+              {grid.map((rows, i) =>
+                rows.map((col, k) => (
+                  <Cell
+                    coords={{
+                      row: i,
+                      col: k,
+                    }}
+                    cellState={
+                      hoveredCells[i]?.[k]?.current === CELL_STATE.ALIVE
+                        ? CELL_STATE.HOVERED
+                        : grid[i]?.[k]?.current === CELL_STATE.ALIVE
+                        ? CELL_STATE.ALIVE
+                        : grid[i]?.[k]?.previous !== CELL_STATE.DEAD ||
+                          grid[i]?.[k]?.next !== CELL_STATE.DEAD
+                        ? CELL_STATE.STARVING
+                        : CELL_STATE.DEAD
+                    }
+                    key={`${i}-${k}`}
+                    onClick={() => {
+                      const ctx = trace.setSpan(context.active(), renderSpan);
+                      const gridCellClickSpan = tracer.startSpan(
+                        "grid cell click",
+                        {},
+                        ctx
+                      );
+                      setGrid(mergeGrids(hoveredCells, grid));
+                      gridCellClickSpan.end();
+                    }}
+                    onMouseEnter={() => setHoveredCell([i, k])}
+                    onMouseLeave={() => setHoveredCell(undefined)}
+                  />
+                ))
+              )}
+            </Layer>
+          </Stage>
         </Space>
       </Layout>
     );
