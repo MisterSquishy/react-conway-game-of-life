@@ -257,6 +257,12 @@ const App: React.FC = () => {
       [cursorType, renderSpan]
     );
 
+    const [hoveredRow, hoveredColumn] = hoveredCell || [];
+    const hoveredCells =
+      hoveredRow && hoveredColumn
+        ? getCellsForCursor(hoveredRow, hoveredColumn)
+        : [];
+
     const cellColorStyle = useCallback(
       (i: number, k: number) => {
         const ctx = trace.setSpan(context.active(), renderSpan);
@@ -267,10 +273,6 @@ const App: React.FC = () => {
         );
         const cellState = grid[i][k];
         const [hoveredRow, hoveredColumn] = hoveredCell || [];
-        const hoveredCells =
-          hoveredRow !== undefined && hoveredColumn !== undefined
-            ? getCellsForCursor(hoveredRow, hoveredColumn)
-            : [];
         if (
           hoveredRow !== undefined &&
           hoveredColumn !== undefined &&
@@ -296,7 +298,7 @@ const App: React.FC = () => {
         }
         cellColorStyleSpan.end();
       },
-      [getCellsForCursor, grid, hoveredCell, renderSpan]
+      [grid, hoveredCell, hoveredCells, renderSpan]
     );
 
     return (
@@ -442,8 +444,7 @@ const App: React.FC = () => {
                       {},
                       ctx
                     );
-                    const clickedCells = getCellsForCursor(i, k);
-                    setGrid(mergeGrids(clickedCells, grid));
+                    setGrid(mergeGrids(hoveredCells, grid));
                     gridCellClickSpan.end();
                   }}
                   onMouseEnter={() => setHoveredCell([i, k])}
