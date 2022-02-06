@@ -265,7 +265,7 @@ const App: React.FC = () => {
 
     const [hoveredRow, hoveredColumn] = hoveredCell || [];
     const hoveredCells =
-      hoveredRow && hoveredColumn
+      hoveredRow !== undefined && hoveredColumn !== undefined
         ? getCellsForCursor(hoveredRow, hoveredColumn)
         : [];
 
