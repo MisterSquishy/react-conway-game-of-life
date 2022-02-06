@@ -1,7 +1,9 @@
 import { context, trace } from "@opentelemetry/api";
 import { CollectorTraceExporter } from "@opentelemetry/exporter-collector";
+import { Resource } from "@opentelemetry/resources";
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { WebTracerProvider } from "@opentelemetry/sdk-trace-web";
+import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
 import { Button, InputNumber, Layout, PageHeader, Select, Space } from "antd";
 import Modal from "antd/lib/modal/Modal";
 import produce from "immer";
@@ -11,8 +13,12 @@ import SHAPES, { CELL_STATE, PREFABS } from "./shapes";
 
 const { Option, OptGroup } = Select;
 
-// Create a provider for activating and tracking spans
-const tracerProvider = new WebTracerProvider();
+const name = "game of life";
+const tracerProvider = new WebTracerProvider({
+  resource: new Resource({
+    [SemanticResourceAttributes.SERVICE_NAME]: name,
+  }),
+});
 
 // Connect to Lightstep by configuring the exporter with your endpoint and access token.
 tracerProvider.addSpanProcessor(
@@ -30,7 +36,6 @@ tracerProvider.addSpanProcessor(
 // Register the tracer
 tracerProvider.register();
 trace.setGlobalTracerProvider(tracerProvider);
-const name = "game of life";
 const version = "0.1.0";
 const tracer = trace.getTracer(name, version);
 
