@@ -4,15 +4,3 @@
   height: 100vh;
   display: flex;
 }
-
-.grid-cell.hovered {
-  background-color: #d7cd4e;
-}
-
-.grid-cell.alive {
-  background-color: #007ea6;
-}
-
-.grid-cell.starving {
-  background-color: #88a990;
-}

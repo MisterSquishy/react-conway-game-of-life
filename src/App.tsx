@@ -16,7 +16,7 @@ import SHAPES, { CELL_STATE, PREFABS } from "./shapes";
 const { Option, OptGroup } = Select;
 
 const numRows = 30;
-const numCols = 100;
+const numCols = 50;
 
 const name = "game of life";
 const tracerProvider = new WebTracerProvider({
