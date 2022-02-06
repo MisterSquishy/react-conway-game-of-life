@@ -9,9 +9,13 @@ import Modal from "antd/lib/modal/Modal";
 import produce from "immer";
 import React, { useCallback, useRef, useState } from "react";
 import "./App.css";
+import Cell from "./components/Cell";
 import SHAPES, { CELL_STATE, PREFABS } from "./shapes";
 
 const { Option, OptGroup } = Select;
+
+const numRows = 30;
+const numCols = 100;
 
 const name = "game of life";
 const tracerProvider = new WebTracerProvider({
@@ -39,20 +43,13 @@ trace.setGlobalTracerProvider(tracerProvider);
 const version = "0.1.0";
 const tracer = trace.getTracer(name, version);
 
-const aliveColor = "#007EA6";
-const starvingColor = "#88A990";
-const hoverColor = "#D7CD4E";
-
-const numRows = 30;
-const numCols = 100;
-
 interface CellState {
   previous: CELL_STATE;
   current: CELL_STATE;
   next: CELL_STATE;
 }
 
-type Grid = CellState[][];
+export type Grid = CellState[][];
 
 const SHAPE_GROUPS = {
   Stables: [PREFABS.BEEHIVE, PREFABS.BEEHIVE_WITH_TAIL, PREFABS.MIRRORED_TABLE],
@@ -263,44 +260,6 @@ const App: React.FC = () => {
         ? getCellsForCursor(hoveredRow, hoveredColumn)
         : [];
 
-    const cellColorStyle = useCallback(
-      (i: number, k: number) => {
-        const ctx = trace.setSpan(context.active(), renderSpan);
-        const cellColorStyleSpan = tracer.startSpan(
-          "cell color style",
-          {},
-          ctx
-        );
-        const cellState = grid[i][k];
-        const [hoveredRow, hoveredColumn] = hoveredCell || [];
-        if (
-          hoveredRow !== undefined &&
-          hoveredColumn !== undefined &&
-          hoveredCells[i] &&
-          hoveredCells[i][k]?.current === CELL_STATE.ALIVE
-        ) {
-          return {
-            backgroundColor: hoverColor,
-          };
-        } else if (cellState.current === CELL_STATE.ALIVE) {
-          return {
-            backgroundColor: aliveColor,
-          };
-        } else if (cellState.current === CELL_STATE.DEAD) {
-          if (
-            cellState.previous !== CELL_STATE.DEAD ||
-            cellState.next !== CELL_STATE.DEAD
-          ) {
-            return {
-              backgroundColor: starvingColor,
-            };
-          }
-        }
-        cellColorStyleSpan.end();
-      },
-      [grid, hoveredCell, hoveredCells, renderSpan]
-    );
-
     return (
       <Layout
         style={{
@@ -435,7 +394,17 @@ const App: React.FC = () => {
           >
             {grid.map((rows, i) =>
               rows.map((col, k) => (
-                <div
+                <Cell
+                  colorClassName={
+                    hoveredCells[i]?.[k]?.current === CELL_STATE.ALIVE
+                      ? "hovered"
+                      : grid[i]?.[k]?.current === CELL_STATE.ALIVE
+                      ? "alive"
+                      : grid[i]?.[k]?.previous !== CELL_STATE.DEAD ||
+                        grid[i]?.[k]?.next !== CELL_STATE.DEAD
+                      ? "starving"
+                      : ""
+                  }
                   key={`${i}-${k}`}
                   onClick={() => {
                     const ctx = trace.setSpan(context.active(), renderSpan);
@@ -449,12 +418,6 @@ const App: React.FC = () => {
                   }}
                   onMouseEnter={() => setHoveredCell([i, k])}
                   onMouseLeave={() => setHoveredCell(undefined)}
-                  style={{
-                    width: 15,
-                    height: 15,
-                    border: "solid 0.5px black",
-                    ...cellColorStyle(i, k),
-                  }}
                 />
               ))
             )}
