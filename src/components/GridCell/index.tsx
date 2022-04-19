@@ -1,5 +1,6 @@
 import React from "react";
 import { Rect } from "react-konva";
+import { Cell, TEAM } from "../../App";
 import { CELL_STATE } from "../../shapes";
 
 interface Props {
@@ -10,16 +11,22 @@ interface Props {
     row: number;
     col: number;
   };
-  cellState: CELL_STATE;
+  cell: Cell;
 }
 
-const Cell = ({
+const COLORS: Record<TEAM, string> = {
+  blue: "blue",
+  red: "red",
+};
+
+const GridCell = ({
   onMouseEnter,
   onMouseLeave,
   onClick,
   coords,
-  cellState,
+  cell,
 }: Props) => {
+  const aliveColor = COLORS[cell.team || "blue"];
   return (
     <Rect
       x={coords.col * 15}
@@ -31,16 +38,15 @@ const Cell = ({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       fill={
-        cellState === CELL_STATE.ALIVE
-          ? "#007ea6"
-          : cellState === CELL_STATE.HOVERED
-          ? "#d7cd4e"
-          : cellState === CELL_STATE.STARVING
-          ? "#88a990"
+        cell.state === CELL_STATE.ALIVE
+          ? aliveColor
+          : cell.state === CELL_STATE.HOVERED
+          ? aliveColor
           : ""
       }
+      opacity={cell.state === CELL_STATE.HOVERED ? 0.25 : 1}
     />
   );
 };
 
-export default Cell;
+export default GridCell;

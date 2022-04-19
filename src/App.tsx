@@ -10,13 +10,15 @@ import produce from "immer";
 import React, { useCallback, useRef, useState } from "react";
 import { Layer, Stage } from "react-konva";
 import "./App.css";
-import Cell from "./components/Cell";
+import GridCell from "./components/GridCell";
 import SHAPES, { CELL_STATE, PREFABS } from "./shapes";
 
 const { Option, OptGroup } = Select;
 
-const numRows = 30;
-const numCols = 50;
+export type TEAM = "blue" | "red";
+
+const numRows = 11;
+const numCols = 22;
 
 const name = "game of life";
 const tracerProvider = new WebTracerProvider({
@@ -48,13 +50,12 @@ trace.setGlobalTracerProvider(tracerProvider);
 const version = "0.1.0";
 const tracer = trace.getTracer(name, version);
 
-interface CellState {
-  previous: CELL_STATE;
-  current: CELL_STATE;
-  next: CELL_STATE;
+export interface Cell {
+  state: CELL_STATE;
+  team?: TEAM;
 }
 
-export type Grid = CellState[][];
+export type Grid = Cell[][];
 
 const SHAPE_GROUPS = {
   Stables: [PREFABS.BEEHIVE, PREFABS.BEEHIVE_WITH_TAIL, PREFABS.MIRRORED_TABLE],
@@ -90,6 +91,9 @@ const App: React.FC = () => {
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
   const [hoveredCell, setHoveredCell] = useState<[number, number]>();
   const [cursorType, setCursorType] = useState<PREFABS>(PREFABS.POINT);
+  const [team, setTeam] = useState<TEAM>("blue");
+  const [done, setDone] = useState(false);
+  const priorStatesRef = useRef<string[]>([]);
   const intervalMs = useRef(50);
   const generation = useRef(0);
   const renderSpan = tracer.startSpan("render frame", {
@@ -106,9 +110,7 @@ const App: React.FC = () => {
       for (let i = 0; i < numRows; i++) {
         rows.push(
           Array.from(Array(numCols), () => ({
-            previous: CELL_STATE.DEAD,
-            current: CELL_STATE.DEAD,
-            next: CELL_STATE.DEAD,
+            state: CELL_STATE.DEAD,
           }))
         );
       }
@@ -158,8 +160,9 @@ const App: React.FC = () => {
           );
           for (let i = 0; i < numRows; i++) {
             for (let k = 0; k < numCols; k++) {
-              gridCopy[i][k].previous = gridCopy[i][k].current;
               let livingNeighbors = 0;
+              let livingBlueNeighbors = 0;
+              let livingRedNeighbors = 0;
               operations.forEach(([x, y]) => {
                 const newI = i + x;
                 const newK = k + y;
@@ -170,62 +173,44 @@ const App: React.FC = () => {
                   newK < numCols
                 ) {
                   const neighborIsAlive =
-                    g[newI][newK].current === CELL_STATE.ALIVE;
+                    g[newI][newK].state === CELL_STATE.ALIVE;
                   livingNeighbors += neighborIsAlive ? 1 : 0;
+                  livingBlueNeighbors +=
+                    neighborIsAlive && g[newI][newK].team === "blue" ? 1 : 0;
+                  livingRedNeighbors +=
+                    neighborIsAlive && g[newI][newK].team === "red" ? 1 : 0;
                 }
               });
 
               if (livingNeighbors < 2 || livingNeighbors > 3) {
-                gridCopy[i][k].current = CELL_STATE.DEAD;
+                gridCopy[i][k].state = CELL_STATE.DEAD;
               } else if (
-                g[i][k].current === CELL_STATE.DEAD &&
+                g[i][k].state === CELL_STATE.DEAD &&
                 livingNeighbors === 3
               ) {
-                gridCopy[i][k].current = CELL_STATE.ALIVE;
+                gridCopy[i][k].team =
+                  livingBlueNeighbors > livingRedNeighbors
+                    ? "blue"
+                    : livingRedNeighbors > livingBlueNeighbors
+                    ? "red"
+                    : Math.random() > 0.5
+                    ? "blue"
+                    : "red";
+                gridCopy[i][k].state = CELL_STATE.ALIVE;
               }
             }
           }
           generateCurrentGenerationSpan.end();
-          const generateNextGenerationSpan = tracer.startSpan(
-            "generate next generation",
-            {},
-            ctx
-          );
-          // set next
-          for (let i = 0; i < numRows; i++) {
-            for (let k = 0; k < numCols; k++) {
-              let livingNeighbors = 0;
-              operations.forEach(([x, y]) => {
-                const newI = i + x;
-                const newK = k + y;
-                if (
-                  newI >= 0 &&
-                  newI < numRows &&
-                  newK >= 0 &&
-                  newK < numCols
-                ) {
-                  const neighborIsAlive =
-                    g[newI][newK].current === CELL_STATE.ALIVE;
-                  livingNeighbors += neighborIsAlive ? 1 : 0;
-                }
-              });
-              if (livingNeighbors < 2 || livingNeighbors > 3) {
-                gridCopy[i][k].next = CELL_STATE.DEAD;
-              } else if (
-                g[i][k].current === CELL_STATE.DEAD &&
-                livingNeighbors === 3
-              ) {
-                gridCopy[i][k].next = CELL_STATE.ALIVE;
-              } else if (
-                g[i][k].current === CELL_STATE.ALIVE &&
-                livingNeighbors >= 2 &&
-                livingNeighbors <= 3
-              ) {
-                gridCopy[i][k].next = CELL_STATE.ALIVE;
-              }
-            }
+          const gridAsString = JSON.stringify(gridCopy);
+          if (
+            priorStatesRef.current.find(
+              (priorGrid) => priorGrid === gridAsString
+            )
+          ) {
+            setDone(true);
+          } else {
+            priorStatesRef.current.push(gridAsString);
           }
-          generateNextGenerationSpan.end();
         });
       });
 
@@ -236,6 +221,7 @@ const App: React.FC = () => {
       if (!runningRef.current) {
         return;
       }
+      setDone(false);
       runGeneration();
       setTimeout(runLoop, intervalMs.current);
     }, [runGeneration, intervalMs]);
@@ -264,16 +250,15 @@ const App: React.FC = () => {
           newGrid[startRow + row] = [];
           for (var col = 0; col < cursorShape[row].length; col++) {
             newGrid[startRow + row][startCol + col] = {
-              previous: cursorShape[row][col],
-              current: cursorShape[row][col],
-              next: cursorShape[row][col],
+              state: cursorShape[row][col],
+              team,
             };
           }
         }
         getCellsForCursorSpan.end();
         return newGrid;
       },
-      [cursorType, renderSpan]
+      [cursorType, renderSpan, team]
     );
 
     const [hoveredRow, hoveredColumn] = hoveredCell || [];
@@ -344,14 +329,12 @@ const App: React.FC = () => {
                     Array.from(Array(numCols), () =>
                       Math.random() > 0.7
                         ? {
-                            current: CELL_STATE.ALIVE,
-                            next: CELL_STATE.ALIVE,
-                            previous: CELL_STATE.ALIVE,
+                            state: CELL_STATE.ALIVE,
+                            team:
+                              Math.random() > 0.5 ? "blue" : ("red" as TEAM),
                           }
                         : {
-                            current: CELL_STATE.DEAD,
-                            next: CELL_STATE.DEAD,
-                            previous: CELL_STATE.DEAD,
+                            state: CELL_STATE.DEAD,
                           }
                     )
                   );
@@ -411,24 +394,60 @@ const App: React.FC = () => {
           >
             generation {generation.current}
           </Space>
+          <Button onClick={() => setTeam(team === "blue" ? "red" : "blue")}>
+            Change teams
+          </Button>
+          {done && (
+            <>
+              <Space>This game is done</Space>
+              <Space>
+                Red has{" "}
+                {grid.reduce((prev, cur) => {
+                  return (
+                    prev +
+                    cur
+                      .map((cell) =>
+                        cell.state === CELL_STATE.ALIVE && cell.team === "red"
+                          ? 1
+                          : (0 as number)
+                      )
+                      .reduce((prev, cur) => prev + cur, 0)
+                  );
+                }, 0)}
+              </Space>
+              <Space>
+                Blue has{" "}
+                {grid.reduce((prev, cur) => {
+                  return (
+                    prev +
+                    cur
+                      .map((cell) =>
+                        cell.state === CELL_STATE.ALIVE && cell.team === "blue"
+                          ? 1
+                          : (0 as number)
+                      )
+                      .reduce((prev, cur) => prev + cur, 0)
+                  );
+                }, 0)}
+              </Space>
+            </>
+          )}
           <Stage width={15 * numCols} height={15 * numRows}>
             <Layer>
               {grid.map((rows, i) =>
                 rows.map((col, k) => (
-                  <Cell
+                  <GridCell
                     coords={{
                       row: i,
                       col: k,
                     }}
-                    cellState={
-                      hoveredCells[i]?.[k]?.current === CELL_STATE.ALIVE
-                        ? CELL_STATE.HOVERED
-                        : grid[i]?.[k]?.current === CELL_STATE.ALIVE
-                        ? CELL_STATE.ALIVE
-                        : grid[i]?.[k]?.previous !== CELL_STATE.DEAD ||
-                          grid[i]?.[k]?.next !== CELL_STATE.DEAD
-                        ? CELL_STATE.STARVING
-                        : CELL_STATE.DEAD
+                    cell={
+                      hoveredCells[i]?.[k]?.state === CELL_STATE.ALIVE
+                        ? {
+                            state: CELL_STATE.HOVERED,
+                            team: hoveredCells[i]?.[k]?.team,
+                          } // todo ew
+                        : grid[i]?.[k]
                     }
                     key={`${i}-${k}`}
                     onClick={() => {

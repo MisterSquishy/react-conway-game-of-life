@@ -27,7 +27,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "deploy": "react-scripts build && cp ./build/index.html ./build/200.html && surge ./build --domain conway.pdavids.website"
+    "deploy": "react-scripts build && cp ./build/index.html ./build/200.html && surge ./build --domain conway-game.pdavids.website"
   },
   "eslintConfig": {
     "extends": "react-app"
